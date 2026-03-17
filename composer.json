@@ -1,0 +1,20 @@
+
+{
+    "name": "nexus/tef-enterprise",
+    "description": "Sistema de Gestão TEF e Fiscal Pro",
+    "type": "project",
+    "require": {
+        "php": ">=8.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "Nexus\\": "./"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "allow-plugins": {
+            "php-http/discovery": true
+        }
+    }
+}

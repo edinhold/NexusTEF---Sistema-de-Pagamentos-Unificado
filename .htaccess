@@ -1,0 +1,20 @@
+# Configurações de Segurança e Roteamento NexusTEF
+Options -Indexes
+
+<Files "config.php">
+    Order allow,deny
+    Deny from all
+</Files>
+
+<Files "Database.php">
+    Order allow,deny
+    Deny from all
+</Files>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # Garante que as requisições para a API não sejam desviadas
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ api.php [L]
+</IfModule>

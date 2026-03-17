@@ -1,11 +1,37 @@
-<div align="center">
+# 🏁 NexusTEF V6 - Guia Final de Conexão
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+Siga estes passos para colocar o sistema online.
 
-  <h1>Built with AI Studio</h2>
+## 1. Banco de Dados
+- No **XAMPP**, crie o banco `nexustef` e importe o `database.sql`.
+- Na **VPS**, crie o banco, o usuário e garanta as permissões:
+```sql
+CREATE DATABASE nexustef;
+CREATE USER 'db_user_vps'@'localhost' IDENTIFIED BY 'vps_password_secure';
+GRANT ALL PRIVILEGES ON nexustef.* TO 'db_user_vps'@'localhost';
+```
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+## 2. Configuração de Conexão
+Edite o arquivo `config.php` apenas se as suas credenciais de produção forem diferentes do padrão sugerido. O sistema detecta automaticamente se você está rodando no `localhost`.
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+## 3. Configuração do Apache (VPS Ubuntu 24.04)
+Certifique-se de habilitar o `mod_rewrite`:
+```bash
+sudo a2enmod rewrite
+sudo systemctl restart apache2
+```
+O arquivo `.htaccess` incluído já protege suas credenciais de banco de dados (`config.php`) de acessos externos via navegador.
 
-</div>
+## 4. Estrutura de Pastas Recomendada
+```text
+/var/www/html/nexustef/
+├── index.html        (Frontend)
+├── index.tsx         (React Entry)
+├── api.php           (API Gateway)
+├── config.php        (Configurações Sensíveis)
+├── Database.php      (Core de Conexão)
+├── .htaccess         (Segurança Apache)
+└── database.sql      (Backup do Banco)
+```
+
+**NexusTEF Enterprise** - Pronto para escalar em qualquer segmento de loja.
