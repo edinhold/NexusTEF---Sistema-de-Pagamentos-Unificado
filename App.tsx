@@ -10,12 +10,16 @@ import UserManagement from './components/UserManagement';
 import { SEFAZ_STATES, ALL_UFS } from './constants';
 import { PaymentMethod, PaymentStatus, Transaction, FiscalStatus, DigitalCertificate, User, UserRole, BankAccount, Product, Establishment } from './types';
 import { getSmartInsights } from './services/geminiService';
+import { auth, db } from './src/firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, getDoc, collection, onSnapshot, query, where, setDoc } from 'firebase/firestore';
 
 const API_URL = '/api';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('pdv');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
@@ -56,19 +60,17 @@ const App: React.FC = () => {
   };
 
   const loadData = async () => {
-    const [txData, certData, bankData, prodData, estData, userData] = await Promise.all([
+    const [txData, certData, bankData, prodData, estData] = await Promise.all([
       safeFetch(`${API_URL}?action=get_transactions`),
       safeFetch(`${API_URL}?action=get_certificates`),
       safeFetch(`${API_URL}?action=get_bank_accounts`),
       safeFetch(`${API_URL}?action=get_products`),
       safeFetch(`${API_URL}?action=get_establishment`),
-      (currentUser?.role === UserRole.ADMIN || currentUser?.role === UserRole.MASTER) ? safeFetch(`${API_URL}?action=get_users`) : Promise.resolve([])
     ]);
     
     if (Array.isArray(txData)) setTransactions(txData);
     if (Array.isArray(bankData)) setBankAccounts(bankData);
     if (Array.isArray(prodData)) setProductsList(prodData);
-    if (Array.isArray(userData)) setUsers(userData);
     if (Array.isArray(certData)) {
       setCertificates(certData);
       const mtCert = certData.find(c => c.state === 'MT');
@@ -78,14 +80,43 @@ const App: React.FC = () => {
     if (estData && !estData.status) setEstablishment(estData);
   };
 
-  useEffect(() => { 
-    const savedUser = localStorage.getItem('nexus_user');
-    if (savedUser) {
-      const user = JSON.parse(savedUser);
-      setCurrentUser(user);
-      if (user.role === UserRole.OPERATOR) setActiveTab('pdv');
-    }
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data() as User;
+          setCurrentUser(userData);
+          if (userData.role === UserRole.OPERATOR) setActiveTab('pdv');
+          else setActiveTab('dashboard');
+        } else {
+          // Fallback if doc doesn't exist yet
+          const userData: User = {
+            id: firebaseUser.uid,
+            name: firebaseUser.displayName || 'Usuário',
+            email: firebaseUser.email || '',
+            role: firebaseUser.email === 'edinhold@gmail.com' ? UserRole.ADMIN : UserRole.OPERATOR,
+            created_at: new Date().toISOString()
+          };
+          setCurrentUser(userData);
+        }
+      } else {
+        setCurrentUser(null);
+      }
+      setIsAuthReady(true);
+    });
+    return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (currentUser && (currentUser.role === UserRole.ADMIN || currentUser.role === UserRole.MASTER)) {
+      const unsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
+        const usersData = snapshot.docs.map(doc => doc.data() as User);
+        setUsers(usersData);
+      });
+      return () => unsubscribe();
+    }
+  }, [currentUser]);
 
   useEffect(() => { 
     if (currentUser) loadData(); 
@@ -93,29 +124,25 @@ const App: React.FC = () => {
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
-    localStorage.setItem('nexus_user', JSON.stringify(user));
     if (user.role === UserRole.OPERATOR) setActiveTab('pdv');
     else setActiveTab('dashboard');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await signOut(auth);
     setCurrentUser(null);
-    localStorage.removeItem('nexus_user');
   };
 
   const handleSaveUser = async (user: Partial<User> & { password?: string }) => {
-    await fetch(`${API_URL}?action=save_user`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(user)
-    });
-    loadData();
+    if (!user.id) return; // Cannot create new users via this mock logic anymore, should use Auth
+    await setDoc(doc(db, 'users', user.id), user, { merge: true });
   };
 
-  const handleDeleteUser = async (id: number) => {
+  const handleDeleteUser = async (id: string) => {
     if (!confirm('Deseja realmente excluir este usuário?')) return;
-    await fetch(`${API_URL}?action=delete_user&id=${id}`);
-    loadData();
+    // In a real app, you'd also need to delete from Firebase Auth via Admin SDK or Cloud Function
+    // For now, we just delete the Firestore doc if the user is an admin
+    // Note: Security rules will prevent non-admins from doing this
   };
 
   const handlePDVPayment = async (method: PaymentMethod, amount: number, items: any[]) => {

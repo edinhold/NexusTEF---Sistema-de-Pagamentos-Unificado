@@ -36,9 +36,9 @@ export interface BankAccount {
 }
 
 export interface User {
-  id: number;
+  id: string;
   name: string;
-  username: string;
+  email: string;
   role: UserRole;
   created_at?: string;
 }
