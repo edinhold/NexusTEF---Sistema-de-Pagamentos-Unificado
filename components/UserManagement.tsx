@@ -3,14 +3,14 @@ import React, { useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
 
 interface UserManagementProps {
-  onSave: (user: Partial<User>) => Promise<void>;
+  onSave: (user: Partial<User> & { password?: string }) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   users: User[];
 }
 
 const UserManagement: React.FC<UserManagementProps> = ({ onSave, onDelete, users }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<Partial<User> | null>(null);
+  const [editingUser, setEditingUser] = useState<(Partial<User> & { password?: string }) | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const handleOpenModal = (user?: User) => {
@@ -39,9 +39,12 @@ const UserManagement: React.FC<UserManagementProps> = ({ onSave, onDelete, users
           <p className="text-slate-500 font-medium">Controle de acesso para administradores e operadores.</p>
         </div>
         <div className="flex gap-4">
-          <p className="text-xs text-slate-400 max-w-[200px] text-right">
-            Nota: Novos usuários devem se cadastrar na tela de login. Use esta tela para gerenciar cargos.
-          </p>
+          <button 
+            onClick={() => handleOpenModal()} 
+            className="px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg hover:scale-105 transition-all"
+          >
+            + Novo Usuário
+          </button>
         </div>
       </div>
 
@@ -114,10 +117,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ onSave, onDelete, users
                     <input
                       type="text"
                       required
-                      disabled={!!editingUser.id}
                       value={editingUser.name}
                       onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
-                      className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500 transition-all font-medium text-slate-700 disabled:opacity-50"
+                      className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500 transition-all font-medium text-slate-700"
                     />
                   </div>
                   <div className="col-span-2">
@@ -125,12 +127,25 @@ const UserManagement: React.FC<UserManagementProps> = ({ onSave, onDelete, users
                     <input
                       type="email"
                       required
-                      disabled={!!editingUser.id}
                       value={editingUser.email}
                       onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
-                      className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500 transition-all font-medium text-slate-700 disabled:opacity-50"
+                      className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500 transition-all font-medium text-slate-700"
                     />
                   </div>
+                  {!editingUser.id && (
+                    <div className="col-span-2">
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Senha Inicial</label>
+                      <input
+                        type="password"
+                        required
+                        value={editingUser.password || ''}
+                        onChange={(e) => setEditingUser({ ...editingUser, password: e.target.value })}
+                        className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500 transition-all font-medium text-slate-700"
+                        placeholder="Mínimo 6 caracteres"
+                        minLength={6}
+                      />
+                    </div>
+                  )}
                   <div className="col-span-2">
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Cargo / Role</label>
                     <select

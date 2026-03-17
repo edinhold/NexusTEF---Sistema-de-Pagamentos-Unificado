@@ -11,8 +11,10 @@ import { SEFAZ_STATES, ALL_UFS } from './constants';
 import { PaymentMethod, PaymentStatus, Transaction, FiscalStatus, DigitalCertificate, User, UserRole, BankAccount, Product, Establishment } from './types';
 import { getSmartInsights } from './services/geminiService';
 import { auth, db } from './src/firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc, collection, onSnapshot, query, where, setDoc } from 'firebase/firestore';
+import firebaseConfig from './firebase-applet-config.json';
+import { initializeApp } from 'firebase/app';
+import { onAuthStateChanged, signOut, createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
+import { doc, getDoc, collection, onSnapshot, query, where, setDoc, deleteDoc } from 'firebase/firestore';
 
 const API_URL = '/api';
 
@@ -90,15 +92,19 @@ const App: React.FC = () => {
           if (userData.role === UserRole.OPERATOR) setActiveTab('pdv');
           else setActiveTab('dashboard');
         } else {
-          // Fallback if doc doesn't exist yet
+          // Fallback if doc doesn't exist yet (e.g. first Google login)
+          const role = firebaseUser.email === 'edinhold@gmail.com' ? UserRole.MASTER : UserRole.ADMIN;
           const userData: User = {
             id: firebaseUser.uid,
             name: firebaseUser.displayName || 'Usuário',
             email: firebaseUser.email || '',
-            role: firebaseUser.email === 'edinhold@gmail.com' ? UserRole.ADMIN : UserRole.OPERATOR,
+            role: role,
             created_at: new Date().toISOString()
           };
+          // Save the doc if it doesn't exist
+          await setDoc(doc(db, 'users', firebaseUser.uid), userData);
           setCurrentUser(userData);
+          setActiveTab('dashboard');
         }
       } else {
         setCurrentUser(null);
@@ -134,15 +140,59 @@ const App: React.FC = () => {
   };
 
   const handleSaveUser = async (user: Partial<User> & { password?: string }) => {
-    if (!user.id) return; // Cannot create new users via this mock logic anymore, should use Auth
-    await setDoc(doc(db, 'users', user.id), user, { merge: true });
+    setIsSaving(true);
+    try {
+      if (!user.id) {
+        // Creating a new user
+        if (!user.email || !user.password) {
+          alert('E-mail e senha são obrigatórios para novos usuários.');
+          return;
+        }
+
+        // Use a secondary Firebase app to create the user without logging out the admin
+        const secondaryApp = initializeApp(firebaseConfig, 'Secondary');
+        const secondaryAuth = getAuth(secondaryApp);
+        
+        const userCredential = await createUserWithEmailAndPassword(secondaryAuth, user.email, user.password);
+        const firebaseUser = userCredential.user;
+        
+        const userData: User = {
+          id: firebaseUser.uid,
+          name: user.name || 'Novo Usuário',
+          email: user.email,
+          role: user.role || UserRole.OPERATOR,
+          created_at: new Date().toISOString()
+        };
+
+        await setDoc(doc(db, 'users', firebaseUser.uid), userData);
+        
+        // Clean up secondary app
+        await secondaryAuth.signOut();
+        // Note: secondaryApp.delete() is not strictly needed but good practice if it were available
+        
+        alert('Usuário criado com sucesso!');
+      } else {
+        // Updating existing user
+        await setDoc(doc(db, 'users', user.id), user, { merge: true });
+        alert('Usuário atualizado com sucesso!');
+      }
+    } catch (error: any) {
+      console.error('Error saving user:', error);
+      alert('Erro ao salvar usuário: ' + error.message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDeleteUser = async (id: string) => {
     if (!confirm('Deseja realmente excluir este usuário?')) return;
-    // In a real app, you'd also need to delete from Firebase Auth via Admin SDK or Cloud Function
-    // For now, we just delete the Firestore doc if the user is an admin
-    // Note: Security rules will prevent non-admins from doing this
+    try {
+      await deleteDoc(doc(db, 'users', id));
+      alert('Usuário removido do banco de dados. Nota: O acesso via Auth ainda pode persistir até a limpeza manual.');
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      alert('Erro ao excluir usuário: ' + error.message);
+    }
   };
 
   const handlePDVPayment = async (method: PaymentMethod, amount: number, items: any[]) => {
