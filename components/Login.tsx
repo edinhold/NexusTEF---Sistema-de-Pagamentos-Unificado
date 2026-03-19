@@ -4,6 +4,7 @@ import { User, UserRole } from '../types';
 import { auth, db } from '../src/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
+import Logo from './Logo';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -161,10 +162,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
       <div className="w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-100">
         <div className="p-10">
-          <div className="flex justify-center mb-8">
-            <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200">
-              <span className="text-white text-3xl font-black">N</span>
-            </div>
+          <div className="flex justify-center mb-10">
+            <Logo size="lg" />
           </div>
           
           <div className="text-center mb-10">

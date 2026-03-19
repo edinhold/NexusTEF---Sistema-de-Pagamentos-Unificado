@@ -5,6 +5,7 @@ import StatCard from './components/StatCard';
 import TransactionTable from './components/TransactionTable';
 import FiscalMonitor from './components/FiscalMonitor';
 import Login from './components/Login';
+import Logo from './components/Logo';
 import PDV from './components/PDV';
 import UserManagement from './components/UserManagement';
 import { SEFAZ_STATES, ALL_UFS } from './constants';
@@ -12,8 +13,8 @@ import { PaymentMethod, PaymentStatus, Transaction, FiscalStatus, DigitalCertifi
 import { getSmartInsights } from './services/geminiService';
 import { auth, db } from './src/firebase';
 import firebaseConfig from './firebase-applet-config.json';
-import { initializeApp } from 'firebase/app';
-import { onAuthStateChanged, signOut, createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { onAuthStateChanged, signOut, createUserWithEmailAndPassword, getAuth, deleteUser } from 'firebase/auth';
 import { doc, getDoc, collection, onSnapshot, query, where, setDoc, deleteDoc } from 'firebase/firestore';
 
 const API_URL = '/api';
@@ -38,6 +39,7 @@ const App: React.FC = () => {
   const [showCardSimModal, setShowCardSimModal] = useState(false);
   const [showProductModal, setShowProductModal] = useState(false);
   const [showCertModal, setShowCertModal] = useState(false);
+  const [showBankModal, setShowBankModal] = useState(false);
   const [showNoteModal, setShowNoteModal] = useState<Transaction | null>(null);
   
   const [simStep, setSimStep] = useState<'brand' | 'method' | 'installments'>('brand');
@@ -48,6 +50,7 @@ const App: React.FC = () => {
   const [activeCertId, setActiveCertId] = useState<string | null>(null);
   const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null);
   const [editingCert, setEditingCert] = useState<Partial<DigitalCertificate> | null>(null);
+  const [editingBank, setEditingBank] = useState<Partial<BankAccount> | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const safeFetch = async (url: string, options?: RequestInit) => {
@@ -150,7 +153,12 @@ const App: React.FC = () => {
         }
 
         // Use a secondary Firebase app to create the user without logging out the admin
-        const secondaryApp = initializeApp(firebaseConfig, 'Secondary');
+        let secondaryApp;
+        if (getApps().find(app => app.name === 'Secondary')) {
+          secondaryApp = getApp('Secondary');
+        } else {
+          secondaryApp = initializeApp(firebaseConfig, 'Secondary');
+        }
         const secondaryAuth = getAuth(secondaryApp);
         
         const userCredential = await createUserWithEmailAndPassword(secondaryAuth, user.email, user.password);
@@ -187,11 +195,58 @@ const App: React.FC = () => {
   const handleDeleteUser = async (id: string) => {
     if (!confirm('Deseja realmente excluir este usuário?')) return;
     try {
-      await deleteDoc(doc(db, 'users', id));
-      alert('Usuário removido do banco de dados. Nota: O acesso via Auth ainda pode persistir até a limpeza manual.');
+      await fetch(`${API_URL}?action=delete_user&id=${id}`, { method: 'POST' });
+      alert('Usuário removido com sucesso!');
+      loadData();
+      // Also update users state if onSnapshot doesn't trigger immediately
+      setUsers(prev => prev.filter(u => u.id !== id));
     } catch (error: any) {
       console.error('Error deleting user:', error);
       alert('Erro ao excluir usuário: ' + error.message);
+    }
+  };
+
+  const handleDeleteTransaction = async (id: string) => {
+    if (!confirm('Deseja realmente excluir esta transação?')) return;
+    try {
+      await fetch(`${API_URL}?action=delete_transaction&id=${id}`, { method: 'POST' });
+      loadData();
+    } catch (error: any) {
+      console.error('Error deleting transaction:', error);
+      alert('Erro ao excluir transação: ' + error.message);
+    }
+  };
+
+  const handleDeleteBankAccount = async (id: number) => {
+    if (!confirm('Deseja realmente excluir esta conta bancária?')) return;
+    try {
+      await fetch(`${API_URL}?action=delete_bank_account&id=${id}`, { method: 'POST' });
+      loadData();
+    } catch (error: any) {
+      console.error('Error deleting bank account:', error);
+      alert('Erro ao excluir conta bancária: ' + error.message);
+    }
+  };
+
+  const handleDeleteProduct = async (id: number) => {
+    if (!confirm('Deseja realmente excluir este produto?')) return;
+    try {
+      await fetch(`${API_URL}?action=delete_product&id=${id}`, { method: 'POST' });
+      loadData();
+    } catch (error: any) {
+      console.error('Error deleting product:', error);
+      alert('Erro ao excluir produto: ' + error.message);
+    }
+  };
+
+  const handleDeleteCertificate = async (id: string) => {
+    if (!confirm('Deseja realmente excluir este certificado?')) return;
+    try {
+      await fetch(`${API_URL}?action=delete_certificate&id=${id}`, { method: 'POST' });
+      loadData();
+    } catch (error: any) {
+      console.error('Error deleting certificate:', error);
+      alert('Erro ao excluir certificado: ' + error.message);
     }
   };
 
@@ -236,6 +291,26 @@ const App: React.FC = () => {
       body: JSON.stringify(tx)
     });
     loadData();
+  };
+
+  const handleSaveBankAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingBank) return;
+    setIsSaving(true);
+    try {
+      await fetch(`${API_URL}?action=save_bank_account`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editingBank)
+      });
+      setShowBankModal(false);
+      loadData();
+    } catch (error: any) {
+      console.error('Error saving bank account:', error);
+      alert('Erro ao salvar conta bancária: ' + error.message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleSaveProduct = async (e: React.FormEvent) => {
@@ -372,7 +447,10 @@ const App: React.FC = () => {
                 <td className="px-8 py-6 text-center font-mono text-sm font-bold">{prod.stock}</td>
                 <td className="px-8 py-6 font-black text-slate-900 text-sm">R$ {Number(prod.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                 <td className="px-8 py-6 text-right">
-                  <button onClick={() => { setEditingProduct(prod); setShowProductModal(true); }} className="text-indigo-600 font-black text-[10px] uppercase hover:underline">Editar</button>
+                  <div className="flex justify-end gap-4">
+                    <button onClick={() => { setEditingProduct(prod); setShowProductModal(true); }} className="text-indigo-600 font-black text-[10px] uppercase hover:underline">Editar</button>
+                    <button onClick={() => handleDeleteProduct(prod.id)} className="text-rose-500 font-black text-[10px] uppercase hover:underline">Excluir</button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -396,6 +474,12 @@ const App: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {certificates.map(c => (
           <div key={c.id} className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm relative group hover:shadow-xl transition-all overflow-hidden">
+            <button 
+              onClick={() => handleDeleteCertificate(c.id)}
+              className="absolute top-6 right-6 p-2 text-slate-300 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100 z-20"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+            </button>
             <div className={`absolute top-0 right-0 p-6`}>
                <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${c.state === 'MT' ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-100 text-slate-500'}`}>
                  UF: {c.state} {c.state === 'MT' && '⭐'}
@@ -421,19 +505,31 @@ const App: React.FC = () => {
           <h3 className="text-3xl font-black text-slate-900 tracking-tight">Conciliação Bancária</h3>
           <p className="text-slate-500 font-medium">Sincronização em tempo real com todos os bancos (Open Finance).</p>
         </div>
+        <button onClick={() => { setEditingBank({ bank_name: '', account_type: 'Corrente', balance: 0 }); setShowBankModal(true); }} className="px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg hover:scale-105 transition-all">
+          + Adicionar Banco
+        </button>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {bankAccounts.map(bank => (
-          <div key={bank.id} className="bg-white p-10 rounded-[4rem] border border-slate-100 shadow-sm hover:shadow-2xl transition-all group">
+          <div key={bank.id} className="bg-white p-10 rounded-[4rem] border border-slate-100 shadow-sm hover:shadow-2xl transition-all group relative">
+            <button 
+              onClick={() => handleDeleteBankAccount(bank.id)}
+              className="absolute top-8 right-8 p-2 text-slate-300 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+            </button>
             <div className="flex items-center justify-between mb-8">
                <div className="w-16 h-16 bg-slate-50 rounded-[2rem] flex items-center justify-center text-3xl group-hover:bg-indigo-600 group-hover:text-white transition-all">🏦</div>
                <span className="text-[10px] font-black text-emerald-500 uppercase flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div> Sincronizado</span>
             </div>
             <h4 className="text-2xl font-black text-slate-900 mb-1">{bank.bank_name}</h4>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-8">{bank.account_type}</p>
-            <div className="pt-6 border-t border-slate-50">
-               <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Saldo Atual</p>
-               <p className="text-3xl font-black text-slate-900">R$ {Number(bank.balance).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            <div className="pt-6 border-t border-slate-50 flex justify-between items-end">
+               <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Saldo Atual</p>
+                  <p className="text-3xl font-black text-slate-900">R$ {Number(bank.balance).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+               </div>
+               <button onClick={() => { setEditingBank(bank); setShowBankModal(true); }} className="text-indigo-600 font-black text-[10px] uppercase hover:underline">Editar</button>
             </div>
           </div>
         ))}
@@ -450,9 +546,12 @@ const App: React.FC = () => {
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} currentUser={currentUser} onLogout={handleLogout} />
       <div className="flex-1 md:ml-64 flex flex-col min-w-0">
         <header className="h-24 bg-white/70 backdrop-blur-xl border-b border-slate-100 flex items-center justify-between px-12 sticky top-0 z-40">
-          <div className="flex flex-col">
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight leading-none uppercase">NexusTEF <span className="text-indigo-600">Enterprise</span></h2>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mt-2">Plataforma Unificada</span>
+          <div className="flex items-center gap-4">
+            <Logo size="sm" className="md:hidden" />
+            <div className="hidden md:flex flex-col">
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight leading-none uppercase">NexusTEF <span className="text-indigo-600">Enterprise</span></h2>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-2">Plataforma Unificada</span>
+            </div>
           </div>
           <div className="flex items-center gap-6">
              <div className="text-right">
@@ -498,7 +597,7 @@ const App: React.FC = () => {
                 <StatCard label="Produtos" value={productsList.length} icon="📦" color="bg-amber-50" />
               </div>
               <FiscalMonitor states={SEFAZ_STATES} />
-              <TransactionTable transactions={transactions.slice(0, 5)} />
+              <TransactionTable transactions={transactions.slice(0, 5)} onDelete={handleDeleteTransaction} />
             </div>
           )}
 
@@ -521,7 +620,7 @@ const App: React.FC = () => {
           {activeTab === 'products' && renderProducts()}
           {activeTab === 'certificates' && renderCertificates()}
           {activeTab === 'banks' && renderBanks()}
-          {activeTab === 'transactions' && <TransactionTable transactions={transactions} />}
+          {activeTab === 'transactions' && <TransactionTable transactions={transactions} onDelete={handleDeleteTransaction} />}
 
           {activeTab === 'fiscal' && (
             <div className="space-y-8">
@@ -538,7 +637,7 @@ const App: React.FC = () => {
                   </div>
                   <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-indigo-500/10 rounded-full"></div>
                </div>
-               <TransactionTable transactions={transactions} />
+               <TransactionTable transactions={transactions} onDelete={handleDeleteTransaction} />
             </div>
           )}
 
@@ -605,6 +704,38 @@ const App: React.FC = () => {
               <div className="flex gap-4 pt-4">
                 <button type="button" onClick={() => setShowCertModal(false)} className="flex-1 py-4 bg-slate-100 font-black text-xs uppercase">Fechar</button>
                 <button type="submit" disabled={isSaving} className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase">Ativar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showBankModal && editingBank && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[1000] flex items-center justify-center p-6 animate-in zoom-in">
+          <div className="bg-white p-12 rounded-[4rem] w-full max-w-lg shadow-2xl">
+            <h3 className="text-2xl font-black text-slate-900 mb-8 uppercase">{editingBank.id ? 'Editar Banco' : 'Adicionar Banco'}</h3>
+            <form onSubmit={handleSaveBankAccount} className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Instituição Financeira</label>
+                <input type="text" required value={editingBank.bank_name} onChange={e => setEditingBank({...editingBank, bank_name: e.target.value})} className="w-full bg-slate-50 p-5 rounded-2xl text-sm font-black outline-none focus:ring-4 focus:ring-indigo-100 transition-all" placeholder="Ex: Itaú, Nubank, etc." />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Tipo de Conta</label>
+                <select value={editingBank.account_type} onChange={e => setEditingBank({...editingBank, account_type: e.target.value})} className="w-full bg-slate-50 p-5 rounded-2xl text-sm font-black outline-none focus:ring-4 focus:ring-indigo-100 transition-all">
+                  <option value="Corrente">Corrente</option>
+                  <option value="Poupança">Poupança</option>
+                  <option value="Pagamentos">Pagamentos</option>
+                  <option value="PJ">PJ</option>
+                  <option value="Giro">Giro</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Saldo Inicial (R$)</label>
+                <input type="number" step="0.01" required value={editingBank.balance} onChange={e => setEditingBank({...editingBank, balance: parseFloat(e.target.value)})} className="w-full bg-slate-50 p-5 rounded-2xl text-sm font-black outline-none focus:ring-4 focus:ring-indigo-100 transition-all" />
+              </div>
+              <div className="flex gap-4 pt-4">
+                <button type="button" onClick={() => setShowBankModal(false)} className="flex-1 py-4 bg-slate-100 font-black text-xs uppercase rounded-2xl">Cancelar</button>
+                <button type="submit" disabled={isSaving} className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase shadow-xl hover:bg-indigo-700 transition-all">Confirmar</button>
               </div>
             </form>
           </div>

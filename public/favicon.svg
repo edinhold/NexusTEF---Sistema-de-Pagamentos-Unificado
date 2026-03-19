@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="logo-grad-32" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f46e5" />
+      <stop offset="100%" stop-color="#8b5cf6" />
+    </linearGradient>
+  </defs>
+  <path 
+    d="M16 2 L28 8 L28 24 L16 30 L4 24 L4 8 Z" 
+    fill="url(#logo-grad-32)"
+  />
+  <text x="50%" y="55%" font-family="Arial, sans-serif" font-size="14" font-weight="900" fill="white" text-anchor="middle" dominant-baseline="middle">N</text>
+</svg>

@@ -4,9 +4,10 @@ import { Transaction, PaymentStatus, FiscalStatus } from '../types';
 
 interface TransactionTableProps {
   transactions: Transaction[];
+  onDelete?: (id: string) => void;
 }
 
-const TransactionTable: React.FC<TransactionTableProps> = ({ transactions }) => {
+const TransactionTable: React.FC<TransactionTableProps> = ({ transactions, onDelete }) => {
   const getStatusStyle = (status: PaymentStatus) => {
     switch (status) {
       case PaymentStatus.SUCCESS: return 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200';
@@ -71,10 +72,19 @@ const TransactionTable: React.FC<TransactionTableProps> = ({ transactions }) => 
                     {tx.status}
                   </span>
                 </td>
-                <td className="px-8 py-5 text-right">
+                <td className="px-8 py-5 text-right flex items-center justify-end gap-3">
                   <span className={`px-2.5 py-1 text-[10px] font-black rounded-lg ${getFiscalStyle(tx.fiscalStatus)}`}>
                     {tx.fiscalStatus || 'Sem Nota'}
                   </span>
+                  {onDelete && (
+                    <button 
+                      onClick={() => onDelete(tx.id)}
+                      className="p-1.5 text-slate-300 hover:text-rose-500 transition-colors"
+                      title="Excluir Transação"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

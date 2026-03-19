@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="logo-grad-512" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f46e5" />
+      <stop offset="100%" stop-color="#8b5cf6" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="white" />
+  <path 
+    d="M256 25 L460 145 L460 367 L256 487 L52 367 L52 145 Z" 
+    fill="url(#logo-grad-512)"
+  />
+  <path 
+    d="M154 210 L256 210 L256 302 L358 302" 
+    stroke="white" 
+    stroke-width="20" 
+    fill="none" 
+    stroke-linecap="round"
+    opacity="0.3"
+  />
+  <circle cx="154" cy="210" r="15" fill="white" opacity="0.5" />
+  <circle cx="358" cy="302" r="15" fill="white" opacity="0.5" />
+  <text x="50%" y="55%" font-family="Arial, sans-serif" font-size="220" font-weight="900" fill="white" text-anchor="middle" dominant-baseline="middle">N</text>
+</svg>

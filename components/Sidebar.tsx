@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { User, UserRole } from '../types';
+import Logo from './Logo';
 
 interface SidebarProps {
   activeTab: string;
@@ -29,14 +30,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, currentUser,
 
   return (
     <div className="w-64 bg-slate-900 h-screen fixed left-0 top-0 text-white p-6 hidden md:flex flex-col border-r border-slate-800 z-50">
-      <div className="mb-12 flex items-center gap-3">
-        <div className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center font-black text-2xl shadow-lg shadow-indigo-500/20">
-          N
-        </div>
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">NexusTEF</h1>
-          <p className="text-[10px] text-slate-400 font-medium uppercase tracking-[0.2em]">V6 Enterprise</p>
-        </div>
+      <div className="mb-12">
+        <Logo size="md" textColor="text-white" />
       </div>
       
       <nav className="flex-1 space-y-2 overflow-y-auto pr-2 custom-scrollbar">
